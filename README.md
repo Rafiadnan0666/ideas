@@ -1,57 +1,38 @@
-# 🧠 Ideas
+🧠 Ideas – Real-time Team Collaboration Platform
+Live: https://ideas-wheat.vercel.app
+Stack: Next.js, Supabase, Tailwind CSS, TypeScript
 
-**Ideas** (formerly Vaultify) is your personal, secure, and minimalist idea vault. Jot down thoughts, save inspirations, draft billion-dollar startups — without the noise. Built for creators who think fast and store smart.
+📌 Overview
+Ideas is a modern team collaboration platform inspired by Notion and Linear. It supports real-time personal and team messaging, team-based posts, and notes that feel like threaded comments. Roles and permissions are in place, with intuitive UI and secure email-based authentication.
 
----
+✨ Features
+🔐 Auth via Supabase (email confirmation, role-based logic)
 
-## 🚀 Features
+💬 Real-time direct and team chat with Supabase Realtime
 
-- 🔒 Private by default — your thoughts, your eyes only
-- 🔍 Full-text search so you never lose a spark
-- 🧱 Simple and clean UI focused on writing
-- ☁️ Supabase/SQLite backend (configurable)
+📝 Post & comment system (inspired by threads)
 
----
+📎 Team join via invite link, searchable only if public
 
-## 📦 Tech Stack
+👥 Role system (Owner, Member) with kick/invite
 
-- Frontend: Next.js + Tailwind CSS
-- Backend: Supabase (PostgreSQL, Auth, Realtime)
-- Deployment: Vercel / Netlify / Your choice
-- Storage: Supabase Bucket (optional for attachments)
+🔔 Notification support (non-push)
 
----
+🧪 Try it Out
+Login with email → Confirm via Gmail → Join or create a team → Start posting or chatting.
 
-## 🛠️ Getting Started
+📂 Structure
+app/ – Next.js App Router-based structure
 
-```bash
-git clone https://github.com/yourusername/ideas.git
-cd ideas
-npm install
-npm run dev
-Make sure to set up your .env.local:
+components/ – Reusable UI components
 
-env
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+lib/ – Supabase utils and helpers
 
-📁 Folder Structure
-bash
-/components     → UI components
-/pages          → Next.js routes
-/utils          → Supabase client, helpers
-/types          → Type definitions
-/styles         → Global Tailwind config
-📌 Roadmap
- Core note editor
+types/ – Centralized TypeScript types
 
- User auth (Supabase)
+🧠 Ideal Use Case
+Early-stage team collaboration
 
- Attachments & media support
+Internal note-taking or DM systems
 
- AI auto-tagging (OpenAI embedding)
-
- Shareable public notes
-
-🤝 Contributing
-Pull requests are welcome! For major changes, open an issue first to discuss what you want to change. Keep it clean, keep it smart.
+Starter kit for real-time Supabase apps
