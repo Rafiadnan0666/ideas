@@ -51,6 +51,7 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <meta name="google-site-verification" content="YuQrC7DcNbYUtrPZKWXZ_GgDqm8QkVGwpmigcHODNT0" />
       <body className={`${inter.className} antialiased min-h-screen`}>
         <main className="min-h-screen">
           {children}
