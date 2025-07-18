@@ -232,6 +232,7 @@ export default function TeamPage() {
 
     container.addEventListener('scroll', handleScroll);
     return () => container.removeEventListener('scroll', handleScroll);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMember, hasMoreMessages]);
 
   const handleSaveSettings = async () => {
