@@ -287,6 +287,31 @@ export default function PostPage() {
     
     return (
       <div key={note.id} className={`border-l-2 ${currentBorder} pl-4 mb-4`}>
+        {/* meta tag meta  */}
+        <meta name="description" content={note.content} />
+        <meta name="keywords" content={`post, note, comment, ${note.user_id}`} />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="slug" content={note.id.toString()} />
+        <meta name="title" content={`Comment by u/${note.user_id}`} />
+        <meta name="content" content={note.content} />
+        <meta name="visibility" content={note.visibility} />
+        <meta name="post_id" content={note.post_id.toString()} />
+        <meta name="parent_id" content={note.parent_id ? note.parent_id.toString() : ''} />
+        <meta name="note_id" content={note.id.toString()} />
+        <meta name="attachment" content={note.attachment || ''} />
+        <meta name="visibility" content={note.visibility} />
+        <meta name="note_depth" content={depth.toString()} />
+        <meta name="note_replies" content={replies.length.toString()} />
+        <meta name="note_owner" content={isOwner ? 'true' : 'false'} />
+        <meta name="note_depth_limit" content={maxDepth.toString()} />
+        <meta name="note_depth_color" content={currentBorder} />
+        <meta name="note_depth_index" content={depth.toString()} />
+        <meta name="note_depth_max" content={maxDepth.toString()} />
+        <meta name="note_depth_color_index" content={depth < maxDepth ? depth.toString() : maxDepth.toString()} />
+        <meta name="note_depth_color_value" content={currentBorder} />
+        <title>Ideas - {post.title}</title>
+    
+        
         <div className="bg-white rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex justify-between items-start mb-2">
             <div className="text-sm text-gray-500">

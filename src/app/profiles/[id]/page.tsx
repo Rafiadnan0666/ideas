@@ -162,6 +162,15 @@ setAuthUser({
 
   return (
     <Layout>
+      {/* meta tag */}
+      <title>{profile?.full_name || 'Profile'} - Vault</title>
+      <meta name="description" content={`Profile of ${profile?.full_name || 'user'}.`} />
+      <meta property="og:title" content={`${profile?.full_name || 'Profile'} -
+  Vault`} />
+      <meta property="og:description" content={`Profile of ${profile?.full_name || 'user'}.`} />
+      <meta property="og:type" content="profile" />
+      <meta property="og:url" content={`https://vault.com/profiles/${id}`} />
+      <meta property="og:image" content={profile?.avatar_url || 'https://vault.com/default-avatar.png'} />
       <main className="min-h-screen bg-gray-50 pt-24 font-poppins">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left – Profile Card */}
