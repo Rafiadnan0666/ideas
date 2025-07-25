@@ -39,6 +39,8 @@ interface IPost {
     slug: string;
     user_id : string;
     team_id : number;
+    type : string;
+    link : string;
     created_at : Date;
     updated_at : Date;
 }

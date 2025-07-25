@@ -150,6 +150,7 @@ export default function Explore() {
           attachment: newPost.attachment,
           visibility: newPost.visibility,
           user_id: authUser.id,
+          type: "post",
           team_id: newPost.team_id,
           slug: slug
         })

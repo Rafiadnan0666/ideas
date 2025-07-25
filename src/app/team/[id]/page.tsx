@@ -52,7 +52,7 @@ export default function TeamPage() {
     roles: IRole;
   }[]>([]);
 
-  // Sanitize URL for Next.js Image component
+
   const sanitizeUrl = (url: string | null) => {
     if (!url) return null;
     try {
@@ -60,7 +60,7 @@ export default function TeamPage() {
       // Only allow certain domains for images
       const allowedDomains = [
         'staticflickr.com',
-        'yourdomain.com',
+        'duckduckgo.com',
         'supabase.co'
       ];
       
@@ -73,13 +73,13 @@ export default function TeamPage() {
     }
   };
 
-  // Fetch essential data
+
   const fetchInitialData = useCallback(async () => {
     if (!teamId) return;
 
     setLoading(true);
     try {
-      // Get authenticated user
+  
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError || !user) {
         router.push("/sign-in");
@@ -97,7 +97,7 @@ export default function TeamPage() {
       };
       setAuthUser(authUserData);
 
-      // Fetch team data and membership status in parallel
+
       const [teamRes, memberRes] = await Promise.all([
         supabase.from("teams").select("*").eq("id", teamId).single(),
         supabase.from("member_team").select("*").eq("user_id", user.id).eq("team_id", teamId).maybeSingle()
@@ -121,11 +121,11 @@ export default function TeamPage() {
         setIsMember(true);
         setMemberRole(memberRes.data.role_id);
       } else if (teamRes.data.visibility === 'private') {
-        // For private teams, show join modal immediately if not member
+ 
         setShowJoinModal(true);
       }
 
-      // Load initial posts (only public if not member)
+
       const postsQuery = supabase
         .from("posts")
         .select("*")
@@ -232,7 +232,7 @@ export default function TeamPage() {
 
     container.addEventListener('scroll', handleScroll);
     return () => container.removeEventListener('scroll', handleScroll);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [isMember, hasMoreMessages]);
 
   const handleSaveSettings = async () => {
@@ -294,29 +294,63 @@ export default function TeamPage() {
     if (!error) fetchInitialData();
   };
 
-  const handleJoinTeam = async () => {
-    if (!teamId || !authUser) return;
-    
-    try {
-      const { error } = await supabase
-        .from('member_team')
-        .insert({
-          user_id: authUser.id,
-          team_id: teamId,
-          role_id: 2 // Default member role
-        });
+ const handleJoinTeam = async () => {
+  if (!teamId || !authUser) return;
 
-      if (error) throw error;
+  setError(null);
 
-      setIsMember(true);
-      setShowJoinModal(false);
-      fetchInitialData();
+  try {
 
-    } catch (err: any) {
-      console.error("Error joining team:", err);
-      setError(err.message || "Failed to join team");
-    }
-  };
+    const { error: joinError } = await supabase
+      .from('member_team')
+      .insert({
+        user_id: authUser.id,
+        team_id: teamId,
+        role_id: 2 // Default member role
+      });
+
+    if (joinError) throw joinError;
+
+ 
+    const { data: teamData, error: teamError } = await supabase
+      .from('teams')
+      .select('owner_id, name')
+      .eq('id', teamId)
+      .single();
+
+    if (teamError) throw teamError;
+
+    const { owner_id, name: teamName } = teamData;
+
+    // 3. Insert notifikasi ke owner tim
+    const payload = JSON.stringify({
+      team_id: teamId,
+      team_name: teamName,
+      new_member_name: authUser.full_name || authUser.email || 'Someone'
+    });
+
+    const { error: notifError } = await supabase
+      .from('notifications')
+      .insert({
+        user_id: owner_id,
+        type: 'join_team',
+        payload: payload,
+        read: false
+      });
+
+    if (notifError) throw notifError;
+
+    // 4. Beres
+    setIsMember(true);
+    setShowJoinModal(false);
+    fetchInitialData();
+
+  } catch (err: any) {
+    console.error("Error joining team:", err);
+    setError(err.message || "Failed to join team");
+  }
+};
+
 
   const handleLeaveTeam = async () => {
     if (!teamId || !authUser || !window.confirm('Are you sure you want to leave this team?')) return;

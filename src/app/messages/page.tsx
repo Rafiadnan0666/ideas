@@ -3,379 +3,299 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import Layout from '@/components/Layout';
-import type { IMessage, INotification, IUser } from '@/types/main.db';
-import { FiMessageSquare, FiSearch, FiEdit2, FiTrash2, FiChevronLeft, FiBell } from 'react-icons/fi';
+import type { IMessage, INotification, IProfile } from '@/types/main.db';
+import { FiMessageSquare, FiSearch, FiEdit2, FiTrash2, FiChevronLeft, FiBell, FiPaperclip, FiX } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
+import { toast } from 'sonner';
 
 export default function MessagesPage() {
-  const [authUser, setAuthUser] = useState<IUser | null>(null);
+  const [currentUser, setCurrentUser] = useState<IProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState<IMessage[]>([]);
-  const [conversations, setConversations] = useState<{user: IUser, lastMessage: IMessage}[]>([]);
-  const [selectedUser, setSelectedUser] = useState<IUser | null>(null);
+  const [conversations, setConversations] = useState<{user: IProfile, lastMessage: IMessage}[]>([]);
+  const [selectedUser, setSelectedUser] = useState<IProfile | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<IUser[]>([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [newAttachment, setNewAttachment] = useState('');
+  const [searchResults, setSearchResults] = useState<IProfile[]>([]);
+  const [messageInput, setMessageInput] = useState('');
+  const [attachmentUrl, setAttachmentUrl] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<INotification[]>([]);
   const [editingMessage, setEditingMessage] = useState<IMessage | null>(null);
+  const [showAttachmentInput, setShowAttachmentInput] = useState(false);
 
   const router = useRouter();
   const supabase = createClient();
-  const refreshInterval = useRef<NodeJS.Timeout>();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const realtimeChannelRef = useRef<any>(null);
 
-  // Optimized fetch functions with caching
-  const fetchUser = useCallback(async () => {
+  // Fetch current user
+  const fetchCurrentUser = useCallback(async () => {
     const { data: { user }, error } = await supabase.auth.getUser();
     if (error || !user) {
       router.push('/sign-in');
       return null;
     }
 
-    return {
-      id: user.id,
-      email: user.email ?? '',
-      full_name: user.user_metadata?.full_name ?? '',
-      name: '',
-      password: '',
-      created_at: new Date(),
-      updated_at: new Date(),
-    };
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError) {
+      toast.error('Failed to load user profile');
+      return null;
+    }
+
+    return profile;
   }, [router, supabase]);
 
+  // Fetch conversations with last messages
   const fetchConversations = useCallback(async (userId: string) => {
-    try {
-      // Only fetch messages from the last 30 days to reduce payload
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      
-      const { data: messagesData, error: messagesError } = await supabase
-        .from('messages')
-        .select('*')
-        .or(`from_id.eq.${userId},to_id.eq.${userId}`)
-        .gte('created_at', thirtyDaysAgo.toISOString())
-        .order('created_at', { ascending: false })
-        .limit(100); // Limit to 100 most recent messages
+    const { data: messagesData, error: messagesError } = await supabase
+      .from('messages')
+      .select('*')
+      .or(`from_id.eq.${userId},to_id.eq.${userId}`)
+      .order('created_at', { ascending: false });
 
-      if (messagesError) throw messagesError;
-
-      const userIds = new Set<string>();
-      messagesData?.forEach(msg => {
-        if (msg.from_id !== userId) userIds.add(msg.from_id);
-        if (msg.to_id !== userId) userIds.add(msg.to_id);
-      });
-
-      if (userIds.size === 0) return [];
-
-      // Cache user profiles in local storage
-      const cachedProfiles = localStorage.getItem('userProfiles');
-      let profilesData: IUser[] = [];
-      
-      if (cachedProfiles) {
-        const parsed = JSON.parse(cachedProfiles);
-        profilesData = Array.from(userIds)
-          .map(id => parsed[id])
-          .filter(Boolean);
-        
-        // Check if we have all needed profiles
-        if (profilesData.length === userIds.size) {
-          // All profiles are cached
-        } else {
-          // Fetch missing profiles
-          const missingIds = Array.from(userIds).filter(id => !parsed[id]);
-          const { data: fetchedProfiles, error: profilesError } = await supabase
-            .from('profiles')
-            .select('*')
-            .in('id', missingIds);
-
-          if (profilesError) throw profilesError;
-
-          profilesData = [...profilesData, ...(fetchedProfiles || [])];
-          
-          // Update cache
-          const newCache = {...parsed};
-          fetchedProfiles?.forEach(profile => {
-            newCache[profile.id] = profile;
-          });
-          localStorage.setItem('userProfiles', JSON.stringify(newCache));
-        }
-      } else {
-        // No cache, fetch all
-        const { data: fetchedProfiles, error: profilesError } = await supabase
-          .from('profiles')
-          .select('*')
-          .in('id', Array.from(userIds));
-
-        if (profilesError) throw profilesError;
-
-        profilesData = fetchedProfiles || [];
-        
-        // Create cache
-        const cache = profilesData.reduce((acc, profile) => {
-          acc[profile.id] = profile;
-          return acc;
-        }, {} as Record<string, IUser>);
-        localStorage.setItem('userProfiles', JSON.stringify(cache));
-      }
-
-      const convs = Array.from(userIds).map(userId => {
-        const user = profilesData.find(u => u.id === userId);
-        if (!user) return null;
-        
-        const lastMessage = messagesData.find(msg => 
-          msg.from_id === userId || msg.to_id === userId
-        );
-        return { user, lastMessage: lastMessage! };
-      }).filter(Boolean) as {user: IUser, lastMessage: IMessage}[];
-
-      return convs;
-    } catch (error) {
-      console.error('Error fetching conversations:', error);
-      setError('Failed to load conversations');
+    if (messagesError) {
+      toast.error('Failed to load messages');
       return [];
     }
-  }, [supabase]);
 
-  const loadMessages = useCallback(async (userId: string, currentUserId: string) => {
-    try {
-      // Only fetch messages from the last 30 days
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .or(
-          `and(from_id.eq.${currentUserId},to_id.eq.${userId}),and(from_id.eq.${userId},to_id.eq.${currentUserId})`
-        )
-        .gte('created_at', thirtyDaysAgo.toISOString())
-        .order('created_at', { ascending: true });
+    // Get unique conversation partners
+    const partnerIds = Array.from(new Set(
+      messagesData?.flatMap(msg => 
+        msg.from_id === userId ? msg.to_id : msg.from_id
+      ) || []
+    ));
 
-      if (error) throw error;
+    if (partnerIds.length === 0) return [];
 
-      return data || [];
-    } catch (error) {
-      console.error('Error loading messages:', error);
-      setError('Failed to load messages');
+    // Fetch partner profiles
+    const { data: profiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('*')
+      .in('id', partnerIds);
+
+    if (profilesError) {
+      toast.error('Failed to load user profiles');
       return [];
     }
+
+    // Map conversations with last message
+    return partnerIds.map(partnerId => {
+      const user = profiles?.find(p => p.id === partnerId);
+      if (!user) return null;
+      
+      const lastMessage = messagesData?.find(msg => 
+        msg.from_id === partnerId || msg.to_id === partnerId
+      );
+      return { user, lastMessage: lastMessage! };
+    }).filter(Boolean) as {user: IProfile, lastMessage: IMessage}[];
   }, [supabase]);
 
+  // Fetch messages between two users
+  const fetchMessages = useCallback(async (userId: string, partnerId: string) => {
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .or(
+        `and(from_id.eq.${userId},to_id.eq.${partnerId}),and(from_id.eq.${partnerId},to_id.eq.${userId})`
+      )
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      toast.error('Failed to load conversation');
+      return [];
+    }
+
+    return data || [];
+  }, [supabase]);
+
+  // Fetch unread notifications
   const fetchNotifications = useCallback(async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('read', false)
-        .order('created_at', { ascending: false })
-        .limit(20); // Only get the 20 most recent unread notifications
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('read', false)
+      .order('created_at', { ascending: false });
 
-      if (error) throw error;
-
-      return data || [];
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
+    if (error) {
+      toast.error('Failed to load notifications');
       return [];
     }
+
+    return data || [];
   }, [supabase]);
 
+  // Search users with debounce
   const searchUsers = useCallback(async (query: string, currentUserId: string) => {
-    if (!query.trim()) {
+    if (!query.trim()) return [];
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .or(`full_name.ilike.%${query}%,email.ilike.%${query}%`)
+      .neq('id', currentUserId)
+      .limit(10);
+
+    if (error) {
+      toast.error('Search failed');
       return [];
     }
 
-    try {
-      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(query);
-
-      // Try exact ID match first
-      if (isUUID) {
-        const { data: exactIdData, error: exactIdError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', query)
-          .neq('id', currentUserId)
-          .limit(1);
-
-        if (exactIdError) throw exactIdError;
-
-        if (exactIdData && exactIdData.length > 0) {
-          return exactIdData;
-        }
-      }
-
-      // Fall back to fuzzy search
-      const { data: fuzzyData, error: fuzzyError } = await supabase
-        .from('profiles')
-        .select('*')
-        .or(`full_name.ilike.%${query}%,email.ilike.%${query}%`)
-        .neq('id', currentUserId)
-        .limit(10);
-
-      if (fuzzyError) throw fuzzyError;
-
-      return fuzzyData || [];
-    } catch (error) {
-      console.error('Error searching users:', error);
-      return [];
-    }
+    return data || [];
   }, [supabase]);
 
-  // Optimized refresh function
-  const refreshData = useCallback(async () => {
-    if (!authUser) return;
+  // Setup realtime subscriptions
+  const setupRealtime = useCallback((userId: string) => {
+    // Clean up any existing channel
+    if (realtimeChannelRef.current) {
+      supabase.removeChannel(realtimeChannelRef.current);
+    }
 
-    try {
-      const [newConvs, newNotifs] = await Promise.all([
-        fetchConversations(authUser.id),
-        fetchNotifications(authUser.id)
-      ]);
-
-      setConversations(prev => {
-        // Only update if there are actual changes
-        if (JSON.stringify(prev) !== JSON.stringify(newConvs)) {
-          return newConvs;
-        }
-        return prev;
-      });
-
-      setNotifications(prev => {
-        if (JSON.stringify(prev) !== JSON.stringify(newNotifs)) {
-          return newNotifs;
-        }
-        return prev;
-      });
-
-      if (selectedUser) {
-        const newMessages = await loadMessages(selectedUser.id, authUser.id);
-        setMessages(prev => {
-          if (JSON.stringify(prev) !== JSON.stringify(newMessages)) {
-            return newMessages;
+    // Create new channel for messages
+    realtimeChannelRef.current = supabase
+      .channel('realtime-messages')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'messages',
+          filter: `or(from_id.eq.${userId},to_id.eq.${userId})`
+        },
+        async (payload) => {
+          // Handle different event types
+          switch (payload.eventType) {
+            case 'INSERT':
+              // New message added
+              if (currentUser && selectedUser) {
+                // Check if this message is part of the current conversation
+                const message = payload.new as IMessage;
+                if (
+                  (message.from_id === currentUser.id && message.to_id === selectedUser.id) ||
+                  (message.from_id === selectedUser.id && message.to_id === currentUser.id)
+                ) {
+                  setMessages(prev => [...prev, message]);
+                  scrollToBottom('auto');
+                }
+                
+                // Refresh conversations list
+                const convs = await fetchConversations(currentUser.id);
+                setConversations(convs);
+              }
+              break;
+            
+            case 'UPDATE':
+              // Message updated
+              if (currentUser) {
+                const updatedMessage = payload.new as IMessage;
+                setMessages(prev => 
+                  prev.map(msg => msg.id === updatedMessage.id ? updatedMessage : msg)
+                );
+              }
+              break;
+            
+            case 'DELETE':
+              // Message deleted
+              if (currentUser) {
+                const deletedId = payload.old.id;
+                setMessages(prev => prev.filter(msg => msg.id !== deletedId));
+              }
+              break;
           }
-          return prev;
-        });
-      }
-    } catch (error) {
-      console.error('Refresh error:', error);
-    }
-  }, [authUser, fetchConversations, fetchNotifications, loadMessages, selectedUser]);
-
-  // Setup refresh interval
-  useEffect(() => {
-    if (authUser) {
-      // Initial load
-      refreshData();
-      
-      // Set up interval for refreshing
-      refreshInterval.current = setInterval(refreshData, 2500);
-      
-      return () => {
-        if (refreshInterval.current) {
-          clearInterval(refreshInterval.current);
         }
-      };
-    }
-  }, [authUser, refreshData]);
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id.eq.${userId}`
+        },
+        async () => {
+          if (currentUser) {
+            const notifs = await fetchNotifications(currentUser.id);
+            setNotifications(notifs);
+          }
+        }
+      )
+      .subscribe();
 
-  // Initial auth check
-  useEffect(() => {
-    const initialize = async () => {
-      const user = await fetchUser();
-      if (user) {
-        setAuthUser(user);
-        setLoading(false);
+    return () => {
+      if (realtimeChannelRef.current) {
+        supabase.removeChannel(realtimeChannelRef.current);
       }
     };
+  }, [supabase, currentUser, selectedUser, fetchConversations, fetchNotifications]);
 
-    initialize();
-  }, [fetchUser]);
+  // Scroll to bottom of messages
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior });
+    }, 100);
+  }, []);
 
-  // Search debounce
-  useEffect(() => {
-    const timer = setTimeout(async () => {
-      if (searchQuery.trim() && authUser) {
-        const results = await searchUsers(searchQuery, authUser.id);
-        setSearchResults(results);
-      } else {
-        setSearchResults([]);
-      }
-    }, 300);
+  // Handle sending a message
+  const sendMessage = useCallback(async () => {
+    if (!messageInput.trim() || !selectedUser || !currentUser) return;
 
-    return () => clearTimeout(timer);
-  }, [searchQuery, authUser, searchUsers]);
-
-  const createNotification = async (userId: string, type: string, payload: string) => {
-    try {
-      await supabase
-        .from('notifications')
-        .insert({
-          user_id: userId,
-          type,
-          payload,
-          read: false
-        });
-    } catch (error) {
-      console.error('Error creating notification:', error);
-    }
-  };
-
-  const handleSendMessage = async () => {
-    if (!newMessage.trim() || !selectedUser || !authUser) return;
-    
     setIsSubmitting(true);
-    setError(null);
-    
+
     try {
       if (editingMessage) {
         const { error } = await supabase
           .from('messages')
           .update({
-            content: newMessage,
-            attachment: newAttachment,
+            content: messageInput,
+            attachment: attachmentUrl,
             updated_at: new Date().toISOString()
           })
           .eq('id', editingMessage.id);
-        
+
         if (error) throw error;
-        
-        setEditingMessage(null);
       } else {
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('messages')
           .insert({
-            content: newMessage,
-            attachment: newAttachment,
-            from_id: authUser.id,
+            content: messageInput,
+            attachment: attachmentUrl,
+            from_id: currentUser.id,
             to_id: selectedUser.id
-          })
-          .select()
-          .single();
-        
+          });
+
         if (error) throw error;
 
-        await createNotification(
-          selectedUser.id,
-          'message',
-          `New message from ${authUser.full_name || authUser.email}`
-        );
+        // Create notification for recipient
+        await supabase
+          .from('notifications')
+          .insert({
+            user_id: selectedUser.id,
+            type: 'message',
+            payload: `New message from ${currentUser.full_name || currentUser.email}`,
+            read: false
+          });
       }
-      
-      setNewMessage('');
-      setNewAttachment('');
-      
-      // Trigger immediate refresh after sending
-      refreshData();
-    } catch (error: any) {
-      console.error('Error sending message:', error);
-      setError(error.message || 'Failed to send message');
+
+      setMessageInput('');
+      setAttachmentUrl('');
+      setEditingMessage(null);
+      setShowAttachmentInput(false);
+      scrollToBottom('auto');
+    } catch (error) {
+      toast.error('Failed to send message');
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [messageInput, selectedUser, currentUser, editingMessage, attachmentUrl, supabase, scrollToBottom]);
 
-  const handleDeleteMessage = async (messageId: number) => {
+  // Handle message deletion
+  const deleteMessage = useCallback(async (messageId: number) => {
     if (!window.confirm('Are you sure you want to delete this message?')) return;
     
     try {
@@ -383,44 +303,103 @@ export default function MessagesPage() {
         .from('messages')
         .delete()
         .eq('id', messageId);
-      
-      if (error) throw error;
-      
-      // Trigger immediate refresh after deletion
-      refreshData();
-    } catch (error) {
-      console.error('Error deleting message:', error);
-      setError('Failed to delete message');
-    }
-  };
 
-  const startConversation = async (user: IUser) => {
+      if (error) throw error;
+    } catch (error) {
+      toast.error('Failed to delete message');
+    }
+  }, [supabase]);
+
+  // Start a new conversation
+  const startConversation = useCallback(async (user: IProfile) => {
+    if (!currentUser) return;
+
     setSelectedUser(user);
     setSearchQuery('');
     setSearchResults([]);
-    const messages = await loadMessages(user.id, authUser?.id || '');
-    setMessages(messages);
-  };
+    
+    const msgs = await fetchMessages(currentUser.id, user.id);
+    setMessages(msgs);
+    
+    // Mark notifications as read
+    await supabase
+      .from('notifications')
+      .update({ read: true })
+      .eq('user_id', currentUser.id)
+      .eq('type', 'message')
+      .eq('payload', `like:${user.id}`);
+
+    // Refresh notifications
+    const notifs = await fetchNotifications(currentUser.id);
+    setNotifications(notifs);
+    
+    scrollToBottom('auto');
+  }, [currentUser, fetchMessages, fetchNotifications, supabase, scrollToBottom]);
+
+  // Initialize
+  useEffect(() => {
+    const init = async () => {
+      const user = await fetchCurrentUser();
+      if (user) {
+        setCurrentUser(user);
+        setLoading(false);
+        
+        // Fetch initial data
+        const [convs, notifs] = await Promise.all([
+          fetchConversations(user.id),
+          fetchNotifications(user.id)
+        ]);
+        setConversations(convs);
+        setNotifications(notifs);
+        
+        // Setup realtime
+        setupRealtime(user.id);
+      }
+    };
+
+    init();
+
+    return () => {
+      // Clean up realtime subscription
+      if (realtimeChannelRef.current) {
+        supabase.removeChannel(realtimeChannelRef.current);
+      }
+    };
+  }, [fetchCurrentUser, fetchConversations, fetchNotifications, setupRealtime, supabase]);
+
+  // Search debounce
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (searchQuery.trim() && currentUser) {
+        const results = await searchUsers(searchQuery, currentUser.id);
+        setSearchResults(results);
+      } else {
+        setSearchResults([]);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, currentUser, searchUsers]);
+
+  // Auto-scroll when messages change
+  useEffect(() => {
+    scrollToBottom('auto');
+  }, [messages, scrollToBottom]);
 
   if (loading) {
     return (
       <Layout>
-        <div className="min-h-screen bg-gray-100 pt-16">
-          <div className="max-w-6xl mx-auto p-4">
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="animate-pulse h-8 bg-gray-200 rounded w-1/3 mb-6"></div>
-              <div className="flex gap-4">
-                <div className="w-1/3 space-y-4">
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} className="h-16 bg-gray-200 rounded"></div>
-                  ))}
-                </div>
-                <div className="flex-1 space-y-4">
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} className="h-12 bg-gray-200 rounded"></div>
-                  ))}
-                </div>
-              </div>
+        <div className="flex h-screen bg-gray-50">
+          <div className="w-full max-w-4xl mx-auto flex border rounded-lg bg-white my-8">
+            <div className="w-1/3 border-r p-4 space-y-4">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="h-16 bg-gray-100 rounded-lg animate-pulse" />
+              ))}
+            </div>
+            <div className="flex-1 p-4 space-y-4">
+              {[...Array(10)].map((_, i) => (
+                <div key={i} className={`h-12 bg-gray-100 rounded-lg animate-pulse ${i % 2 ? 'ml-auto w-2/3' : 'mr-auto w-1/2'}`} />
+              ))}
             </div>
           </div>
         </div>
@@ -428,14 +407,19 @@ export default function MessagesPage() {
     );
   }
 
-  if (!authUser) {
+  if (!currentUser) {
     return (
       <Layout>
-        <div className="min-h-screen bg-gray-100 pt-16">
-          <div className="max-w-6xl mx-auto p-4">
-            <div className="bg-white rounded-lg shadow-md p-6 text-center">
-              <p className="text-gray-600">Please sign in to view messages</p>
-            </div>
+        <div className="flex items-center justify-center h-screen bg-gray-50">
+          <div className="text-center p-8 bg-white rounded-lg shadow">
+            <h2 className="text-xl font-semibold mb-2">Authentication Required</h2>
+            <p className="text-gray-600 mb-4">Please sign in to view messages</p>
+            <button 
+              onClick={() => router.push('/sign-in')}
+              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              Sign In
+            </button>
           </div>
         </div>
       </Layout>
@@ -444,67 +428,68 @@ export default function MessagesPage() {
 
   return (
     <Layout>
-      <div className="min-h-screen bg-gray-100 pt-16">
-        <div className="max-w-6xl mx-auto p-4">
-          <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            <div className="flex h-[calc(100vh-8rem)]">
-              {/* Conversations sidebar */}
-              <div className="w-1/3 border-r border-gray-200 flex flex-col">
-                <div className="p-4 border-b border-gray-200">
-                  <h2 className="text-xl font-semibold flex items-center justify-between">
-                    <span>Messages</span>
-                    <div className="relative">
-                      <FiBell size={20} />
-                      {notifications.length > 0 && (
-                        <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                          {notifications.length}
-                        </span>
-                      )}
-                    </div>
-                  </h2>
-                  <div className="mt-3 relative">
-                    <FiSearch className="absolute left-3 top-2.5 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Search by ID, name, or email..."
-                      className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                  </div>
+      <div className="flex h-[calc(100vh-4rem)] bg-gray-50">
+        <div className="w-full max-w-4xl mx-auto flex border rounded-lg bg-white my-4 overflow-hidden">
+          {/* Sidebar */}
+          <div className={`${selectedUser ? 'hidden md:flex' : 'flex'} w-full md:w-1/3 flex-col border-r`}>
+            <div className="p-4 border-b">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold">Messages</h2>
+                <div className="relative">
+                  <FiBell className="text-gray-600" />
+                  {notifications.length > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                      {notifications.length}
+                    </span>
+                  )}
                 </div>
+              </div>
+              <div className="relative">
+                <FiSearch className="absolute left-3 top-3 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search users..."
+                  className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            </div>
 
-                {/* Search results */}
-                {searchResults.length > 0 && (
-                  <div className="border-b border-gray-200">
-                    {searchResults.map(user => (
-                      <div 
-                        key={user.id}
-                        className="p-3 hover:bg-gray-50 cursor-pointer flex items-center"
-                        onClick={() => startConversation(user)}
-                      >
-                        <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 mr-3">
-                          {(user.full_name || user.email)?.[0]?.toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="font-medium">{user.full_name || user.email}</p>
-                          <p className="text-xs text-gray-500">ID: {user.id}</p>
-                        </div>
-                      </div>
-                    ))}
+            {searchResults.length > 0 ? (
+              <div className="flex-1 overflow-y-auto">
+                {searchResults.map(user => (
+                  <div
+                    key={user.id}
+                    className="p-3 hover:bg-gray-50 cursor-pointer flex items-center"
+                    onClick={() => startConversation(user)}
+                  >
+                    <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center mr-3">
+                      {user.full_name?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="font-medium">{user.full_name || user.email}</p>
+                      <p className="text-xs text-gray-500">Start conversation</p>
+                    </div>
                   </div>
-                )}
-
-                {/* Conversations list */}
-                <div className="flex-1 overflow-y-auto">
-                  {conversations.map(({user, lastMessage}) => (
-                    <div 
+                ))}
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto">
+                {conversations.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-gray-500 p-4">
+                    <FiMessageSquare className="text-4xl mb-2" />
+                    <p>No conversations yet</p>
+                  </div>
+                ) : (
+                  conversations.map(({user, lastMessage}) => (
+                    <div
                       key={user.id}
                       className={`p-3 hover:bg-gray-50 cursor-pointer flex items-center ${selectedUser?.id === user.id ? 'bg-blue-50' : ''}`}
                       onClick={() => startConversation(user)}
                     >
-                      <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 mr-3">
-                        {(user.full_name || user.email)?.[0]?.toUpperCase()}
+                      <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center mr-3">
+                        {user.full_name?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between">
@@ -517,169 +502,193 @@ export default function MessagesPage() {
                         </div>
                         {lastMessage && (
                           <p className="text-sm text-gray-500 truncate">
-                            {lastMessage.from_id === authUser.id ? 'You: ' : ''}
+                            {lastMessage.from_id === currentUser.id ? 'You: ' : ''}
                             {lastMessage.content || 'Attachment'}
                           </p>
                         )}
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Messages area */}
-              <div className="flex-1 flex flex-col">
-                {selectedUser ? (
-                  <>
-                    <div className="p-4 border-b border-gray-200 flex items-center">
-                      <button 
-                        className="md:hidden mr-2 text-gray-500"
-                        onClick={() => setSelectedUser(null)}
-                      >
-                        <FiChevronLeft size={20} />
-                      </button>
-                      <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 mr-3">
-                        {(selectedUser.full_name || selectedUser.email)?.[0]?.toUpperCase()}
-                      </div>
-                      <div>
-                        <p className="font-medium">{selectedUser.full_name || selectedUser.email}</p>
-                        <p className="text-xs text-gray-500">ID: {selectedUser.id}</p>
-                      </div>
-                    </div>
-
-                    <div 
-                      id="messages-container"
-                      className="flex-1 overflow-y-auto p-4 space-y-4"
-                    >
-                      {messages.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500">
-                          No messages yet. Start the conversation!
-                        </div>
-                      ) : (
-                        messages.map(message => (
-                          <div 
-                            key={message.id} 
-                            className={`flex ${message.from_id === authUser.id ? 'justify-end' : 'justify-start'}`}
-                          >
-                            <div 
-                              className={`max-w-xs md:max-w-md rounded-lg p-3 ${message.from_id === authUser.id ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
-                            >
-                              <div className="flex justify-between items-start mb-1">
-                                <span className="text-xs opacity-80">
-                                  {message.from_id === authUser.id ? 'You' : selectedUser.full_name}
-                                </span>
-                                <span className="text-xs opacity-80">
-                                  {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
-                                </span>
-                              </div>
-                              <p className="whitespace-pre-line">{message.content}</p>
-                              {message.attachment && (
-                                <div className="mt-2">
-                                  <a 
-                                    href={message.attachment} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className={`text-sm ${message.from_id === authUser.id ? 'text-blue-100 hover:text-white' : 'text-blue-600 hover:text-blue-800'}`}
-                                  >
-                                    View attachment
-                                  </a>
-                                </div>
-                              )}
-                              {message.from_id === authUser.id && (
-                                <div className="flex justify-end gap-2 mt-2">
-                                  <button 
-                                    onClick={() => {
-                                      setEditingMessage(message);
-                                      setNewMessage(message.content);
-                                      setNewAttachment(message.attachment || '');
-                                    }}
-                                    className="text-xs p-1 rounded hover:bg-blue-600"
-                                  >
-                                    <FiEdit2 size={14} />
-                                  </button>
-                                  <button 
-                                    onClick={() => handleDeleteMessage(message.id)}
-                                    className="text-xs p-1 rounded hover:bg-blue-600"
-                                  >
-                                    <FiTrash2 size={14} />
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-
-                    <div className="p-4 border-t border-gray-200">
-                      {editingMessage && (
-                        <div className="mb-2 text-sm text-gray-500 flex justify-between items-center">
-                          <span>Editing message</span>
-                          <button 
-                            onClick={() => {
-                              setEditingMessage(null);
-                              setNewMessage('');
-                              setNewAttachment('');
-                            }}
-                            className="text-blue-500 hover:text-blue-700"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      )}
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          placeholder="Attachment URL (optional)"
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          value={newAttachment}
-                          onChange={(e) => setNewAttachment(e.target.value)}
-                        />
-                      </div>
-                      <div className="mt-2 flex gap-2">
-                        <textarea
-                          placeholder="Type your message..."
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[60px]"
-                          value={newMessage}
-                          onChange={(e) => setNewMessage(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault();
-                              handleSendMessage();
-                            }
-                          }}
-                        />
-                        <button
-                          onClick={handleSendMessage}
-                          disabled={!newMessage.trim() || isSubmitting}
-                          className={`px-4 py-2 rounded-md ${!newMessage.trim() || isSubmitting ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-blue-500 text-white hover:bg-blue-600'}`}
-                        >
-                          {isSubmitting ? 'Sending...' : 'Send'}
-                        </button>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex-1 flex items-center justify-center">
-                    <div className="text-center p-6">
-                      <FiMessageSquare size={48} className="mx-auto text-gray-400 mb-4" />
-                      <h3 className="text-xl font-medium text-gray-700 mb-2">Select a conversation</h3>
-                      <p className="text-gray-500 mb-4">Choose an existing conversation or search for a user to start a new one</p>
-                      <div className="relative max-w-md mx-auto">
-                        <FiSearch className="absolute left-3 top-3 text-gray-400" />
-                        <input
-                          type="text"
-                          placeholder="Search by ID, name, or email..."
-                          className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                  </div>
+                  ))
                 )}
               </div>
-            </div>
+            )}
+          </div>
+
+          {/* Messages area */}
+          <div className={`${selectedUser ? 'flex' : 'hidden md:flex'} flex-1 flex-col`}>
+            {selectedUser ? (
+              <>
+                <div className="p-4 border-b flex items-center">
+                  <button
+                    className="md:hidden mr-2 text-gray-500 hover:text-gray-700"
+                    onClick={() => setSelectedUser(null)}
+                  >
+                    <FiChevronLeft size={20} />
+                  </button>
+                  <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center mr-3">
+                    {selectedUser.full_name?.[0]?.toUpperCase() || selectedUser.email?.[0]?.toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="font-medium">{selectedUser.full_name || selectedUser.email}</p>
+                    <p className="text-xs text-gray-500">
+                      {messages.length > 0 ? `${messages.length} messages` : 'No messages yet'}
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  ref={messagesContainerRef}
+                  className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50"
+                >
+                  {messages.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-gray-500">
+                      <FiMessageSquare className="text-4xl mb-2" />
+                      <p>No messages yet</p>
+                      <p className="text-sm">Start the conversation!</p>
+                    </div>
+                  ) : (
+                    messages.map(message => (
+                      <div
+                        key={message.id}
+                        className={`flex ${message.from_id === currentUser.id ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div
+                          className={`max-w-xs md:max-w-md rounded-xl p-3 ${message.from_id === currentUser.id ? 'bg-blue-500 text-white' : 'bg-white border'}`}
+                        >
+                          <div className="flex justify-between items-start mb-1">
+                            <span className="text-xs opacity-80">
+                              {message.from_id === currentUser.id ? 'You' : selectedUser.full_name}
+                            </span>
+                            <span className="text-xs opacity-80">
+                              {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
+                            </span>
+                          </div>
+                          <p className="whitespace-pre-wrap">{message.content}</p>
+                          {message.attachment && (
+                            <div className="mt-2">
+                              <a
+                                href={message.attachment}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={`text-sm underline ${message.from_id === currentUser.id ? 'text-blue-100 hover:text-white' : 'text-blue-500 hover:text-blue-700'}`}
+                              >
+                                <FiPaperclip className="inline mr-1" />
+                                View attachment
+                              </a>
+                            </div>
+                          )}
+                          {message.from_id === currentUser.id && (
+                            <div className="flex justify-end gap-2 mt-2">
+                              <button
+                                onClick={() => {
+                                  setEditingMessage(message);
+                                  setMessageInput(message.content);
+                                  setAttachmentUrl(message.attachment || '');
+                                  setShowAttachmentInput(!!message.attachment);
+                                }}
+                                className="p-1 rounded-full hover:bg-blue-600"
+                              >
+                                <FiEdit2 size={14} />
+                              </button>
+                              <button
+                                onClick={() => deleteMessage(message.id)}
+                                className="p-1 rounded-full hover:bg-blue-600"
+                              >
+                                <FiTrash2 size={14} />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                  <div ref={messagesEndRef} />
+                </div>
+
+                <div className="p-4 border-t">
+                  {editingMessage && (
+                    <div className="flex justify-between items-center mb-2 text-sm text-gray-500">
+                      <span>Editing message</span>
+                      <button
+                        onClick={() => {
+                          setEditingMessage(null);
+                          setMessageInput('');
+                          setAttachmentUrl('');
+                          setShowAttachmentInput(false);
+                        }}
+                        className="text-blue-500 hover:text-blue-700"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                  {showAttachmentInput && (
+                    <div className="relative mb-2">
+                      <input
+                        type="text"
+                        placeholder="Attachment URL"
+                        className="w-full pl-3 pr-8 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={attachmentUrl}
+                        onChange={(e) => setAttachmentUrl(e.target.value)}
+                      />
+                      <button
+                        onClick={() => {
+                          setAttachmentUrl('');
+                          setShowAttachmentInput(false);
+                        }}
+                        className="absolute right-2 top-2 text-gray-500 hover:text-gray-700"
+                      >
+                        <FiX size={18} />
+                      </button>
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setShowAttachmentInput(!showAttachmentInput)}
+                      className="p-2 text-gray-500 hover:text-gray-700"
+                    >
+                      <FiPaperclip size={20} />
+                    </button>
+                    <input
+                      type="text"
+                      placeholder="Type a message..."
+                      className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={messageInput}
+                      onChange={(e) => setMessageInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          sendMessage();
+                        }
+                      }}
+                    />
+                    <button
+                      onClick={sendMessage}
+                      disabled={!messageInput.trim() || isSubmitting}
+                      className={`px-4 py-2 rounded-lg ${!messageInput.trim() || isSubmitting ? 'bg-gray-300 text-gray-500' : 'bg-blue-500 text-white hover:bg-blue-600'}`}
+                    >
+                      {isSubmitting ? 'Sending...' : 'Send'}
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-gray-500 p-4">
+                <FiMessageSquare className="text-4xl mb-4" />
+                <h3 className="text-xl font-medium mb-2">Select a conversation</h3>
+                <p className="text-center mb-4">Choose an existing conversation or search for a user to start a new one</p>
+                <div className="relative w-full max-w-md">
+                  <FiSearch className="absolute left-3 top-3 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search users..."
+                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

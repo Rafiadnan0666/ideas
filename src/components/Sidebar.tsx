@@ -14,7 +14,8 @@ import {
   FiChevronUp, 
   FiLogOut,
   FiUser,
-  FiSettings
+  FiSettings,
+  FiActivity
 } from "react-icons/fi";
 import { createClient } from '@/utils/supabase/client';
 import { IoMdRocket } from "react-icons/io";
@@ -402,6 +403,19 @@ const Sidebar = () => {
                 >
                   <FiMessageSquare className="text-lg" />
                   <span className="ml-3">Messages</span>
+                </button>
+              </li>
+                 <li>
+                <button
+                  onClick={() => navigateTo('/blogs')}
+                  className={`w-full flex items-center p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 ${
+                    pathname === '/blogs' 
+                      ? 'bg-orange-50 dark:bg-gray-800 text-orange-500 dark:text-orange-400' 
+                      : 'text-gray-900 dark:text-white'
+                  }`}
+                >
+                  <FiActivity className="text-lg" />
+                  <span className="ml-3">blogs</span>
                 </button>
               </li>
               <li>
