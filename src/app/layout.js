@@ -1,62 +1,52 @@
-import { Inter } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import Script from "next/script";
 
-const inter = Inter({
+const geistSans = Geist({
+  variable: "--font-geist-sans",
   subsets: ["latin"],
-  display: 'swap',
 });
 
-export const metadata = {
-   metadataBase: new URL("https://ideas-wheat.vercel.app"), // Ganti kalau beda domain
-  title: {
-    default: "Ideas – Real-time team notes & collaboration",
-    template: "%s | Ideas",
-  },
-  description: "Collaborate with your team in real time. Share notes, post updates, and stay synced — all in one simple, elegant app.",
-  keywords: [
-    "team collaboration",
-    "real-time notes",
-    "project management",
-    "team communication",
-    "supabase template",
-    "next.js template"
-  ],
-  openGraph: {
-    title: "Ideas – Real-time team notes & collaboration",
-    description: "Collaborate with your team in real time. Share notes, post updates, and stay synced — all in one simple, elegant app.",
-    url: "https://ideas-wheat.vercel.app",
-    siteName: "Ideas",
-    images: [
-      {
-        url: "https://ideas-wheat.vercel.app/og-image.png",
-        width: 1200,
-        height: 630,
-        alt: "Ideas app preview",
-      },
-    ],
-    locale: "en_US",
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Ideas – Real-time team notes & collaboration",
-    description: "Collaborate with your team in real time. Share notes, post updates, and stay synced — all in one simple, elegant app.",
-    images: ["https://ideas-wheat.vercel.app/og-image.png"],
-  },
-  icons: {
-    icon: "/favicon.ico",
-  },
-};
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <meta name="google-site-verification" content="YuQrC7DcNbYUtrPZKWXZ_GgDqm8QkVGwpmigcHODNT0" />
-      <body className={`${inter.className} antialiased min-h-screen`}>
-        <main className="min-h-screen">
-          {children}
-        </main>
+    <html lang="en">
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        {children}
+
+        {/* Google Analytics */}
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-NHXS030H6D"
+          strategy="afterInteractive"
+        />
+        <Script id="gtag-init" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-NHXS030H6D');
+          `}
+        </Script>
+
+        {/* Tawk.to Live Chat */}
+        <Script id="tawk-chat" strategy="afterInteractive">
+          {`
+            var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
+            (function(){
+              var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+              s1.async=true;
+              s1.src='https://embed.tawk.to/683d7dac69a4dc19177da764/1iso35r38';
+              s1.charset='UTF-8';
+              s1.setAttribute('crossorigin','*');
+              s0.parentNode.insertBefore(s1,s0);
+            })();
+          `}
+        </Script>
       </body>
     </html>
   );
-} 
+}

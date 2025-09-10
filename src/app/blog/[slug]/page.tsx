@@ -4,9 +4,10 @@ import { useRouter, useParams } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import Layout from '@/components/Layout';
 import type { IPost, INote, IUser } from '@/types/main.db';
-import { FiMessageSquare, FiShare2, FiBookmark, FiEdit2, FiTrash2, FiCornerUpLeft, FiClock, FiUser, FiX } from 'react-icons/fi';
+import { FiMessageSquare, FiShare2, FiBookmark, FiEdit2, FiTrash2, FiCornerUpLeft, FiClock, FiUser, FiX, FiArrowRight } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function BlogPage() {
   const [authUser, setAuthUser] = useState<IUser | null>(null);
@@ -98,7 +99,7 @@ export default function BlogPage() {
     // Image extensions
     if (/\.(jpg|jpeg|png|gif|webp|avif|svg)$/i.test(url)) {
       return (
-        <div className="mt-3 rounded-xl overflow-hidden border border-gray-800 hover:border-purple-500 transition-all">
+        <div className="mt-3 rounded-xl overflow-hidden border border-gray-800 hover:border-emerald-500 transition-all">
           <img 
             src={url} 
             alt="Embedded content" 
@@ -112,7 +113,7 @@ export default function BlogPage() {
     // Video extensions
     if (/\.(mp4|webm|mov|avi|mkv)$/i.test(url)) {
       return (
-        <div className="mt-3 rounded-xl overflow-hidden border border-gray-800 hover:border-purple-500 transition-all">
+        <div className="mt-3 rounded-xl overflow-hidden border border-gray-800 hover:border-emerald-500 transition-all">
           <video controls className="w-full max-h-96">
             <source src={url} type={`video/${url.split('.').pop()}`} />
           </video>
@@ -128,7 +129,7 @@ export default function BlogPage() {
       
       if (videoId) {
         return (
-          <div className="mt-3 aspect-w-16 aspect-h-9 rounded-xl overflow-hidden border border-gray-800 hover:border-purple-500 transition-all">
+          <div className="mt-3 aspect-w-16 aspect-h-9 rounded-xl overflow-hidden border border-gray-800 hover:border-emerald-500 transition-all">
             <iframe
               src={`https://www.youtube.com/embed/${videoId}`}
               className="w-full h-full"
@@ -189,7 +190,7 @@ export default function BlogPage() {
               href={part} 
               target="_blank" 
               rel="noopener noreferrer"
-              className="text-purple-400 hover:underline break-all"
+              className="text-emerald-400 hover:underline break-all"
             >
               {part}
             </a>
@@ -288,7 +289,7 @@ export default function BlogPage() {
         <div className="py-4 group">
           <div className="flex items-start space-x-3">
             <div className="flex-shrink-0">
-              <div className="w-8 h-8 bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-full flex items-center justify-center">
+              <div className="w-8 h-8 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 rounded-full flex items-center justify-center">
                 <FiUser className="text-gray-300" />
               </div>
             </div>
@@ -309,7 +310,7 @@ export default function BlogPage() {
               <div className="flex items-center space-x-4 text-sm">
                 <button 
                   onClick={() => openNoteModal(note, true)}
-                  className="flex items-center text-gray-400 hover:text-purple-400 transition-colors"
+                  className="flex items-center text-gray-400 hover:text-emerald-400 transition-colors"
                 >
                   <FiMessageSquare className="mr-1" />
                   <span>Reply</span>
@@ -318,7 +319,7 @@ export default function BlogPage() {
                   <>
                     <button 
                       onClick={() => openNoteModal(note)}
-                      className="flex items-center text-gray-400 hover:text-purple-400 transition-colors"
+                      className="flex items-center text-gray-400 hover:text-emerald-400 transition-colors"
                     >
                       <FiEdit2 className="mr-1" />
                       <span>Edit</span>
@@ -350,8 +351,8 @@ export default function BlogPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#0f0f0f] to-[#1a1a1a] flex items-center justify-center">
         <div className="relative">
-          <div className="absolute inset-0 bg-purple-500/20 rounded-full blur-xl animate-pulse"></div>
-          <div className="relative animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+          <div className="absolute inset-0 bg-emerald-500/20 rounded-full blur-xl animate-pulse"></div>
+          <div className="relative animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-500"></div>
         </div>
       </div>
     );
@@ -367,7 +368,7 @@ export default function BlogPage() {
           </p>
           <Link 
             href="/" 
-            className="inline-block px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 rounded-md hover:opacity-90 transition"
+            className="inline-block px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-md hover:opacity-90 transition"
           >
             Back to Home
           </Link>
@@ -381,27 +382,97 @@ export default function BlogPage() {
   return (
     <ContentWrapper>
       <>
-        <title>{post?.title ? `${post.title} | Vault Blog` : 'Vault Blog'}</title>
-        <meta name="description" content={post?.content?.slice(0, 160) || 'Read and share responses on Vault Blog.'} />
-        <meta property="og:title" content={post?.title || 'Vault Blog'} />
-        <meta property="og:description" content={post?.content?.slice(0, 160) || 'Read and share responses on Vault Blog.'} />
+        <title>{post?.title ? `${post.title} | kacangpanjang Blog` : 'kacangpanjang Blog'}</title>
+        <meta name="description" content={post?.content?.slice(0, 160) || 'Read and share responses on kacangpanjang Blog.'} />
+        <meta property="og:title" content={post?.title || 'kacangpanjang Blog'} />
+        <meta property="og:description" content={post?.content?.slice(0, 160) || 'Read and share responses on kacangpanjang Blog.'} />
         <meta property="og:type" content="article" />
-        <meta property="og:url" content={`https://yourdomain.com/blog/${post?.slug || ''}`} />
+        <meta property="og:url" content={`/${post?.slug || ''}`} />
         {post?.attachment && (
           <meta property="og:image" content={post.attachment} />
         )}
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={post?.title || 'Vault Blog'} />
-        <meta name="twitter:description" content={post?.content?.slice(0, 160) || 'Read and share responses on Vault Blog.'} />
+        <meta name="twitter:title" content={post?.title || 'kacangpanjang Blog'} />
+        <meta name="twitter:description" content={post?.content?.slice(0, 160) || 'Read and share responses on kacangpanjang Blog.'} />
         {post?.attachment && (
           <meta name="twitter:image" content={post.attachment} />
         )}
       </>
-      <div className="min-h-screen bg-gradient-to-br from-[#0f0f0f] to-[#1a1a1a] text-white relative overflow-hidden">
+
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        {[...Array(20)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute rounded-full bg-white/5"
+            style={{
+              width: `${Math.random() * 6 + 2}px`,
+              height: `${Math.random() * 6 + 2}px`,
+              top: `${Math.random() * 100}%`,
+              left: `${Math.random() * 100}%`,
+              animation: `float ${Math.random() * 10 + 10}s linear infinite`,
+              animationDelay: `${Math.random() * 5}s`
+            }}
+          ></div>
+        ))}
+      </div>
+   
+{!authUser && (
+  <header
+    className="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-4 md:px-12 py-3 md:py-4 border-b border-gray-800 text-sm backdrop-blur-lg bg-transparent"
+    style={{ background: "rgba(16,16,16,0.7)" }}
+  >
+    <Link href="/" className="flex items-center space-x-2 group">
+      <div className="w-8 h-8 relative">
+        <Image
+          src="/favicon.ico"
+          alt="Logo"
+          width={32}
+          height={32}
+          className="rounded-lg group-hover:rotate-12 transition-transform"
+        />
+      </div>
+      <span className="font-bold text-lg bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-teal-400">
+        kacangpanjangstudio
+      </span>
+    </Link>
+    <nav className="hidden md:flex space-x-4 md:space-x-6 items-center">
+      <Link href="#about" className="hover:text-emerald-400 transition-colors px-3 py-2 rounded-lg hover:bg-gray-800/50 text-white">
+        About
+      </Link>
+      <Link href="/work" className="hover:text-emerald-400 transition-colors px-3 py-2 rounded-lg hover:bg-gray-800/50 text-white">
+        Work
+      </Link>
+      <Link href="#services" className="hover:text-emerald-400 transition-colors px-3 py-2 rounded-lg hover:bg-gray-800/50 text-white">
+        Services
+      </Link>
+      <Link href="#contact" className="hover:text-emerald-400 transition-colors px-3 py-2 rounded-lg hover:bg-gray-800/50 text-white">
+        Contact
+      </Link>
+      <Link
+        href="/sign-in"
+        className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg hover:scale-[1.02] transition-transform flex items-center space-x-2"
+      >
+        <span>Sign In</span>
+        <FiArrowRight className="ml-1" />
+      </Link>
+    </nav>
+    <button className="md:hidden p-2 rounded-lg hover:bg-gray-800/50">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="3" y1="12" x2="21" y2="12"></line>
+        <line x1="3" y1="6" x2="21" y2="6"></line>
+        <line x1="3" y1="18" x2="21" y2="18"></line>
+      </svg>
+    </button>
+  </header>
+)}
+        
+      
+
+      <div className="min-h-screen bg-gradient-to-br from-[#0f0f0f] to-[#1a1a1a] text-white relative overflow-hidden mt-10">
         {/* Animated background elements */}
         <div className="fixed inset-0 overflow-hidden pointer-events-none">
           <div 
-            className="absolute top-1/4 left-1/4 w-64 h-64 bg-purple-500/10 rounded-full filter blur-3xl animate-float"
+            className="absolute top-1/4 left-1/4 w-64 h-64 bg-emerald-500/10 rounded-full filter blur-3xl animate-float"
             style={parallaxStyle(0.02)}
           ></div>
           <div 
@@ -412,13 +483,13 @@ export default function BlogPage() {
 
         {/* Article Header */}
         <div className="max-w-3xl mx-auto px-4 pt-16 pb-8 relative z-10">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-100 mb-4 leading-tight bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400">
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-100 mb-4 leading-tight">
             {post.title}
           </h1>
           
           <div className="flex items-center space-x-4 text-gray-400 mb-8">
             <div className="flex items-center">
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-full mr-3 flex items-center justify-center">
+              <div className="w-10 h-10 bg-gradient-to-br from-emerald-500/20 to-teal-500/20 rounded-full mr-3 flex items-center justify-center">
                 <FiUser className="text-gray-300" />
               </div>
               <div>
@@ -430,16 +501,14 @@ export default function BlogPage() {
               </div>
             </div>
             
-            {authUser && (
-              <div className="flex items-center space-x-4 ml-auto">
-                <button className="p-2 text-gray-400 hover:text-purple-400 transition-colors">
-                  <FiBookmark size={18} />
-                </button>
-                <button className="p-2 text-gray-400 hover:text-purple-400 transition-colors">
-                  <FiShare2 size={18} />
-                </button>
-              </div>
-            )}
+            <div className="flex items-center space-x-4 ml-auto">
+              <button className="p-2 text-gray-400 hover:text-emerald-400 transition-colors">
+                <FiBookmark size={18} />
+              </button>
+              <button className="p-2 text-gray-400 hover:text-emerald-400 transition-colors">
+                <FiShare2 size={18} />
+              </button>
+            </div>
           </div>
         </div>
         
@@ -457,16 +526,18 @@ export default function BlogPage() {
               {authUser ? (
                 <button 
                   onClick={() => openNoteModal(null)}
-                  className="px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 rounded-md hover:opacity-90 transition font-medium text-sm"
+                  className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg hover:scale-[1.02] transition-transform font-medium text-sm flex items-center space-x-2"
                 >
-                  Write a response
+                  <FiMessageSquare className="mr-1" />
+                  <span>Write response</span>
                 </button>
               ) : (
                 <Link 
                   href="/sign-in" 
-                  className="px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 rounded-md hover:opacity-90 transition font-medium text-sm"
+                  className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg hover:scale-[1.02] transition-transform font-medium text-sm flex items-center space-x-2"
                 >
-                  Sign in to comment
+                  <FiMessageSquare className="mr-1" />
+                  <span>Sign in to comment</span>
                 </Link>
               )}
             </div>
@@ -487,7 +558,7 @@ export default function BlogPage() {
         {showNoteModal && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div 
-              className="bg-gradient-to-br from-[#1a1a1a] to-[#0f0f0f] rounded-xl border border-gray-800 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-xl shadow-purple-500/10"
+              className="bg-gradient-to-br from-[#1a1a1a] to-[#0f0f0f] rounded-xl border border-gray-800 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-xl shadow-emerald-500/10"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="p-6 border-b border-gray-800">
@@ -522,7 +593,7 @@ export default function BlogPage() {
                 
                 <textarea
                   placeholder={replyingTo ? "Write your reply..." : "What are your thoughts?"}
-                  className="w-full px-4 py-3 bg-[#0e0e0e] border border-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 min-h-[150px] text-gray-200 placeholder-gray-500"
+                  className="w-full px-4 py-3 bg-[#0e0e0e] border border-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 min-h-[150px] text-gray-200 placeholder-gray-500"
                   value={noteContent}
                   onChange={(e) => setNoteContent(e.target.value)}
                 />
@@ -539,7 +610,7 @@ export default function BlogPage() {
                     setCurrentNote(null);
                     setReplyingTo(null);
                   }}
-                  className="px-4 py-2 border border-gray-700 rounded-md text-gray-300 hover:bg-gray-800/50 transition-colors"
+                  className="px-4 py-2 border border-gray-700 rounded-lg text-gray-300 hover:bg-gray-800/50 transition-colors"
                   disabled={isSubmitting}
                 >
                   Cancel
@@ -547,10 +618,10 @@ export default function BlogPage() {
                 <button
                   onClick={handleNoteSubmit}
                   disabled={!noteContent.trim() || isSubmitting}
-                  className={`px-4 py-2 rounded-md transition-colors ${
+                  className={`px-4 py-2 rounded-lg transition-all ${
                     !noteContent.trim() || isSubmitting ? 
                     'bg-gray-700 text-gray-500 cursor-not-allowed' : 
-                    'bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:opacity-90'
+                    'bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:scale-[1.02]'
                   }`}
                 >
                   {isSubmitting ? 'Publishing...' : 
@@ -564,21 +635,30 @@ export default function BlogPage() {
 
         <style jsx global>{`
           @keyframes float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-20px); }
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(2deg); }
           }
           .animate-float {
-            animation: float 6s ease-in-out infinite;
+            animation: float 8s ease-in-out infinite;
           }
           .animate-float-delay {
-            animation: float 6s ease-in-out 2s infinite;
+            animation: float 8s ease-in-out 2s infinite;
           }
           
           .prose-invert a {
-            color: #a78bfa;
+            color: #10b981;
           }
           .prose-invert a:hover {
             text-decoration: underline;
+          }
+          
+          @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+          
+          .prose-invert {
+            animation: fadeIn 0.5s ease-out;
           }
         `}</style>
       </div>
